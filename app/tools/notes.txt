@@ -1,0 +1,90 @@
+# @app.delete("/chat/reset")
+# def reset_history(username: str = Depends(verify_credentials)):
+#     USER_MEMORIES[username] = ConversationBufferMemory(
+#         return_messages=True, chat_memory=ChatMessageHistory()
+#     )
+#     return {"message": "Memory cleared."}
+#     # 3. History (last 5 messages)
+# '''    history = "\n".join(
+#         f"{getattr(m, 'type', 'UNKNOWN').upper()}: {getattr(m, 'content', '')}"
+#         for m in memory.chat_memory.messages[-5:]
+#     )'''
+        # "conversation_turns": len(memory.chat_memory.messages) // 2,
+
+# "geospatial_data_used": reasoning_output, # TODO: has to know whether it has been used or not
+# @app.post("/agent/mistral")
+# async def agent_mistral(req: ChatRequest, username: str = Depends(verify_credentials)):
+#     """
+#     Pipeline: Mistral (reasoning, tools)
+#     """
+#     state = {"question": req.question.strip()}
+#     result = flow_mistral.invoke(state)
+#     return {'result' : result}
+
+    # # 5. Optional MCP Tool call (geospatial)
+    # geospatial_result = None
+
+    # if (
+    #     reasoning_output.get("intent") == "geospatial_request"
+    #     and entities.get("lon") is not None
+    #     and entities.get("lat") is not None
+    #     and entities.get("date") is not None
+    # ):
+    #     try:
+    #         geospatial_result = await call_mcp_fetch_earth_engine(
+    #             lon=entities["lon"],
+    #             lat=entities["lat"],
+    #             date=entities["date"],
+    #             radius=int(entities.get("radius") or 10)
+    #         )
+
+    #     except Exception as e:
+    #         logger.error(f"MCP tool failed: {e}")
+    #         geospatial_result = {"error": f"MCP tool failed: {e}"}
+
+    # def mistral_reasoning_node(state):
+#     user_msg = state["question"]
+#     prompt = REASONING_PROMPT + f"""User: {user_msg}"""
+#     reasoning = mistral_llm.invoke(prompt)
+#     try:
+#         parsed = json.loads(reasoning)
+#     except Exception:
+#         parsed = {"intent": "unknown", "entities": {}, "raw_output": reasoning}
+#     state["reasoning"] = parsed
+#     return state
+
+
+# def mistral_synthesis(prompt, state):
+#     reasoning_metadata = flow_mistral.invoke(state)
+#     return reasoning_metadata
+
+# graph_mistral = StateGraph()
+# graph_mistral.add_node("mistral_reasoning", mistral_reasoning_node)
+# graph_mistral.add_edge("mistral_reasoning", agent_mistral) #TODO: otherwise it is probably different setting (agent_mistral), where to put the prompt, what is the output of the agent ?
+# graph_mistral.add_edge("tool_node", "mistral_synthesis") #TODO: est-ce que c'est une fonction (la fonction d'au-dessus) ou un str ?
+# graph_mistral.add_edge("mistral_synthesis", END) 
+# flow_mistral = graph_mistral.compile()
+
+# Should I use middelware and pydantic ?
+
+# def claude_synthesis_node(state):
+#     answer = claude_llm.invoke(state)
+#     return {"answer": answer}
+
+# graph_claude = StateGraph()
+# graph_claude.add_node("claude_synthesis", claude_synthesis_node)
+# graph_claude.add_edge("claude_synthesis", END)
+# flow_claude = graph_claude.compile()
+
+#{history}
+# global_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+# USER_MEMORIES = defaultdict(
+#     lambda: ConversationBufferMemory(
+#         return_messages=True,
+#         chat_memory=ChatMessageHistory()
+#     )
+# )
+# Optional logs (for /logs endpoints if you want later)
+# ACTION_LOGS: list[Dict[str, Any]] = []
+
+

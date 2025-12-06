@@ -1,0 +1,39 @@
+name: resilience-debug
+
+version: "3.9"
+services:
+  app:
+    build:
+      context: .
+    container_name: resilience_api
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    env_file:
+      - .env
+    environment:
+      - QDRANT_URL=${QDRANT_URL}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - ANTHROPIC_API_URL=${ANTHROPIC_API_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AUTH_MODE=${AUTH_MODE}
+    volumes:
+      - ./app:/app
+      - ./docs:/docs
+      - ./exports:/exports
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/docs"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:
+
+networks:
+  default:
+    name: resilience-net

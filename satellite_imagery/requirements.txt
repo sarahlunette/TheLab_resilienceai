@@ -1,0 +1,12 @@
+osmnx
+geemap
+geopandas
+ee
+rasterio
+
+numpy
+matplotlib
+
+torch
+torchvision
+

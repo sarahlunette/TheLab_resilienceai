@@ -1,0 +1,4 @@
+streamlit
+fpdf2
+load_dotenv
+markdown
