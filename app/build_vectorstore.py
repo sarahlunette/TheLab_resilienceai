@@ -43,7 +43,7 @@ BATCH_SIZE = 200  # points per upsert
 def chunk_text(text, chunk_size=CHUNK_SIZE):
     words = text.split()
     for i in range(0, len(words), chunk_size):
-        yield " ".join(words[i:i+chunk_size])
+        yield " ".join(words[i : i + chunk_size])
 
 
 # ============================================================
@@ -88,6 +88,7 @@ def load_text_file(path: Path) -> list[Document]:
 def load_docx(path: Path) -> list[Document]:
     try:
         import docx
+
         doc = docx.Document(str(path))
         text = "\n".join(p.text for p in doc.paragraphs)
         return [Document(text=text, metadata={"source": path.name})]
@@ -126,7 +127,9 @@ def load_json(path: Path) -> list[Document]:
     if isinstance(data, list):
         for idx, item in enumerate(data):
             text = flatten(item)
-            docs.append(Document(text=text, metadata={"source": path.name, "json_index": idx}))
+            docs.append(
+                Document(text=text, metadata={"source": path.name, "json_index": idx})
+            )
     elif isinstance(data, dict):
         text = flatten(data)
         docs.append(Document(text=text, metadata={"source": path.name}))
@@ -152,7 +155,7 @@ def doc_key(doc: Document) -> str:
 # ============================================================
 def upsert_points_in_batches(client, collection_name, points):
     for i in range(0, len(points), BATCH_SIZE):
-        batch = points[i:i + BATCH_SIZE]
+        batch = points[i : i + BATCH_SIZE]
         client.upsert(collection_name=collection_name, points=batch)
 
 
@@ -197,11 +200,13 @@ def sync_vectorstore(client, collection_name, embed_model, docs):
         for doc in to_add:
             for chunk in chunk_text(doc.text, chunk_size=CHUNK_SIZE):
                 vector = embed_model.get_text_embedding(chunk)
-                new_points.append(PointStruct(
-                    id=next_id,
-                    vector=vector,
-                    payload={"text": chunk, **doc.metadata}
-                ))
+                new_points.append(
+                    PointStruct(
+                        id=next_id,
+                        vector=vector,
+                        payload={"text": chunk, **doc.metadata},
+                    )
+                )
                 next_id += 1
 
         upsert_points_in_batches(client, collection_name, new_points)
@@ -249,7 +254,9 @@ def main():
 
     # Qdrant connection
     print("🗄 Connecting to Qdrant…")
-    client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, prefer_grpc=False, timeout=60)
+    client = QdrantClient(
+        url=QDRANT_URL, api_key=QDRANT_API_KEY, prefer_grpc=False, timeout=60
+    )
 
     collections = [c.name for c in client.get_collections().collections]
 
@@ -266,7 +273,11 @@ def main():
         for doc in all_docs:
             for chunk in chunk_text(doc.text, chunk_size=CHUNK_SIZE):
                 vector = embed_model.get_text_embedding(chunk)
-                points.append(PointStruct(id=pid, vector=vector, payload={"text": chunk, **doc.metadata}))
+                points.append(
+                    PointStruct(
+                        id=pid, vector=vector, payload={"text": chunk, **doc.metadata}
+                    )
+                )
                 pid += 1
 
         upsert_points_in_batches(client, COLLECTION_NAME, points)

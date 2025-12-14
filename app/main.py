@@ -96,11 +96,8 @@ QDRANT_API_KEY = os.environ["QDRANT_API_KEY"]
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "island_docs")
 embed_model = HuggingFaceEmbedding(model_name="./models/all-MiniLM-L6-v2")
 qdrant_client = QdrantClient(
-        url=QDRANT_URL, 
-        api_key=QDRANT_API_KEY,
-        prefer_grpc=False,
-        timeout=60
-    )
+    url=QDRANT_URL, api_key=QDRANT_API_KEY, prefer_grpc=False, timeout=60
+)
 vector_store = QdrantVectorStore(client=qdrant_client, collection_name=COLLECTION_NAME)
 storage_context = StorageContext.from_defaults(vector_store=vector_store)
 index = VectorStoreIndex.from_vector_store(
@@ -278,17 +275,17 @@ async def tool_earth_engine_fn(state):
     reasoning = state.get("reasoning")
     final_answer = {"answer": "None"}
     entities = reasoning["entities"]
-    lat = int(entities.get("lat") or '0')
-    lon = int(entities.get("lon") or '0')
+    lat = int(entities.get("lat") or "0")
+    lon = int(entities.get("lon") or "0")
     date = entities.get("date")
     user_msg = state["user_msg"]
     # If parameters complete, call the real tool
-# TODO MODIFY WHEN CV TOOL
+    # TODO MODIFY WHEN CV TOOL
 
     return {
         "user_msg": user_msg,
         "reasoning": reasoning,
-        "tool_result": {"answer": "all zones are vulnerable"}, 
+        "tool_result": {"answer": "all zones are vulnerable"},
     }
 
 
@@ -420,7 +417,22 @@ graph_app_ = graph_.compile()
 async def run_resilience_pipeline(user_msg: str):
     state = {
         "user_msg": user_msg,
-        "reasoning": {'intent': 'resilience_plan', 'entities': {'sectors': 'None', 'locations': 'None', 'time_horizon': 'None', 'specific_locations': 'None', 'disaster_type': 'None', 'disaster_name': 'None', 'date': 'None', 'lon': 0, 'lat': 0, 'radius': 'None'}, 'response_mode': 'None'},
+        "reasoning": {
+            "intent": "resilience_plan",
+            "entities": {
+                "sectors": "None",
+                "locations": "None",
+                "time_horizon": "None",
+                "specific_locations": "None",
+                "disaster_type": "None",
+                "disaster_name": "None",
+                "date": "None",
+                "lon": 0,
+                "lat": 0,
+                "radius": "None",
+            },
+            "response_mode": "None",
+        },
         "tool_result": {"answer": "All zones are vulnerable"},
         "final_answer": {"answer": "None"},
     }
@@ -436,7 +448,7 @@ async def run_test(user_msg: str):
 # ---------- Graph: Mistral -> Tools -> Claude ----------
 @app.post("/agent/mistral")
 async def use_agent_mistral(
-    req: ChatRequest#, username: str = Depends(verify_credentials)
+    req: ChatRequest,  # , username: str = Depends(verify_credentials)
 ):
     prompt = req.question.strip()
     outputs = await run_test(prompt)
@@ -448,7 +460,7 @@ async def use_agent_mistral(
 
 @app.post("/mistral_node")
 async def use_agent_mistral_(
-    req: ChatRequest#, username: str = Depends(verify_credentials)
+    req: ChatRequest,  # , username: str = Depends(verify_credentials)
 ):
     user_msg = req.question.strip()
 
@@ -459,7 +471,7 @@ async def use_agent_mistral_(
 
 @app.post("/mistral_node_llm")
 async def use_agent_mistral_(
-    req: ChatRequest#, username: str = Depends(verify_credentials)
+    req: ChatRequest,  # , username: str = Depends(verify_credentials)
 ):
     user_msg = req.question.strip()
     reasoning = mistral_llm.invoke(REASONING_PROMPT + user_msg)
@@ -468,8 +480,7 @@ async def use_agent_mistral_(
 
 
 @app.post("/chat/mistral-claude")
-async def chat(user_req: ChatRequest#, username: str = Depends(verify_credentials)
-               ):
+async def chat(user_req: ChatRequest):  # , username: str = Depends(verify_credentials)
     user_msg = user_req.question.strip()
 
     outputs = await run_resilience_pipeline(user_msg)
@@ -484,9 +495,7 @@ async def chat(user_req: ChatRequest#, username: str = Depends(verify_credential
     tool_result = outputs.get("tool_result")
 
     # Safe access to entities
-    entities = (
-        reasoning.get("entities") if isinstance(reasoning, dict) else None
-    )
+    entities = reasoning.get("entities") if isinstance(reasoning, dict) else None
 
     response = {
         "answer": final_answer,
