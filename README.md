@@ -27,6 +27,7 @@ The platform leverages Retrieval-Augmented Generation (RAG), large language mode
 - **Vector Database**: Qdrant-powered semantic search over disaster recovery documents
 - **MCP Server**: Model Context Protocol for tool integration
 - **Satellite Imagery Processing**: ML-based vulnerability assessment and change detection
+- **Disaster Damage Assessment**: Sentinel-2 satellite imagery analysis for post-disaster infrastructure damage evaluation with severity classification and sector-based reporting
 - **Social Media Monitoring**: Real-time analysis of crisis-related social media data
 - **WhatsApp Integration**: Direct communication channels for field updates
 - **Automated Pipelines**: Docker-based deployment for easy scaling
@@ -61,7 +62,7 @@ TheLab follows a modular microservices architecture:
 - **Backend**: FastAPI with LangGraph for agent orchestration
 - **Vector Store**: Qdrant for document embeddings and retrieval
 - **LLMs**: Mistral for reasoning, Claude for synthesis
-- **Tools**: Climate forecasting, OSM data, Earth Engine integration
+- **Tools**: Climate forecasting, OSM data, Earth Engine integration, Satellite Damage Assessment
 - **Data Processing**: Satellite imagery ML pipelines, social media streams
 
 ## 📋 Prerequisites
