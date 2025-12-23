@@ -43,6 +43,13 @@ from langgraph.graph import StateGraph, END
 # Tools
 from tools.climate_tool import get_climate_forecast
 from tools.osm_tool import get_osm_data
+from tools.satellite_damage_tool import (
+    create_damage_assessment,
+    process_damage_assessment,
+    get_damage_assessment_results,
+    export_damage_assessment_csv,
+    export_damage_assessment_pdf
+)
 from langchain_community.tools import Tool
 
 tools = [
@@ -55,6 +62,40 @@ tools = [
         name="get_osm_data",
         func=get_osm_data,
         description="Retrieve OpenStreetMap data for a given area",
+    ),
+    Tool(
+        name="create_damage_assessment",
+        func=create_damage_assessment,
+        description="""Create a new post-disaster damage assessment project using Sentinel-2 satellite imagery analysis. 
+        Required parameters: name (str), location (str), disaster_type (str: earthquake/flood/hurricane/wildfire/tornado/tsunami/landslide/other), 
+        latitude (float), longitude (float). Optional: before_date (YYYY-MM-DD), after_date (YYYY-MM-DD), description (str).
+        Returns project_id for subsequent analysis.""",
+    ),
+    Tool(
+        name="process_damage_assessment",
+        func=process_damage_assessment,
+        description="""Start processing a damage assessment project to analyze satellite imagery, calculate spectral indices (NDVI, NDBI, MNDWI, NBR), 
+        detect infrastructure elements, and classify damage severity. Required parameter: project_id (int). 
+        Returns processing status and next steps.""",
+    ),
+    Tool(
+        name="get_damage_assessment_results",
+        func=get_damage_assessment_results,
+        description="""Retrieve comprehensive results from a completed damage assessment including infrastructure counts (buildings, roads, bridges, power lines), 
+        damage severity distribution (destroyed, heavily damaged, moderately damaged, minor), sector-based statistics (residential, commercial, infrastructure, agricultural), 
+        and geographic coordinates. Required parameter: project_id (int).""",
+    ),
+    Tool(
+        name="export_damage_assessment_csv",
+        func=export_damage_assessment_csv,
+        description="""Export detailed damage assessment data as CSV file containing infrastructure type, count, damage category, severity level, 
+        coordinates, affected area, and sector classification. Suitable for RAG systems and data analysis. Required parameter: project_id (int).""",
+    ),
+    Tool(
+        name="export_damage_assessment_pdf",
+        func=export_damage_assessment_pdf,
+        description="""Generate comprehensive PDF report with damage maps, statistics tables, severity distribution charts, sector breakdowns, 
+        and before/after imagery comparisons. Required parameter: project_id (int).""",
     ),
 ]
 
