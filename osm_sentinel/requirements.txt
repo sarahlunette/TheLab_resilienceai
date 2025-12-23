@@ -6,3 +6,4 @@ rasterio
 numpy
 torch
 torchvision
+geedim

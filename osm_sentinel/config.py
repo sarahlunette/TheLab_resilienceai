@@ -10,7 +10,7 @@ D_BEFORE = 10
 D_AFTER = 1
 
 # AOI: [min_lon, min_lat, max_lon, max_lat]
-AOI_BBOX = (-63.25, 17.95, -63.00, 18.15)
+AOI_BBOX = (-63.15, 18.00, -63.05, 18.10)
 
 # Sentinel collections
 S1_COLL = "COPERNICUS/S1_GRD"
