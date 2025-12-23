@@ -1,0 +1,5 @@
+atproto
+confluent-kafka
+APScheduler
+spacy
+geopy

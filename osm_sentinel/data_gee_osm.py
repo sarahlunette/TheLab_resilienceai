@@ -1,37 +1,33 @@
 # data_gee_osm.py
 from common_imports import *
+from datetime import timedelta
 
 def aoi_geometry():
     min_lon, min_lat, max_lon, max_lat = AOI_BBOX
     return ee.Geometry.Rectangle([min_lon, min_lat, max_lon, max_lat])
 
-def _date_range(days_offset):
-    t0 = EVENT_DATE + timedelta(days=days_offset)
-    t1 = t0 + timedelta(days=1)
+def _date_range(days_offset, window_days=7):
+    """
+    Centered window around EVENT_DATE + offset.
+    E.g. offset=-1, window_days=7 -> [EVENT_DATE-4, EVENT_DATE+3]
+    """
+    center = EVENT_DATE + timedelta(days=days_offset)
+    half = window_days // 2
+    t0 = center - timedelta(days=half)
+    t1 = center + timedelta(days=half + 1)
     return t0.strftime("%Y-%m-%d"), t1.strftime("%Y-%m-%d")
 
 def get_s2_image(days_offset):
     t0, t1 = _date_range(days_offset)
     geom = aoi_geometry()
-
-    # 1) Try SR L2A harmonized
-    sr = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-          .filterBounds(geom)
-          .filterDate(t0, t1)
-          .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 60)))
-
-    if sr.size().getInfo() > 0:
-        col = sr
-        print(f"Using S2_SR_HARMONIZED for {t0}–{t1}")
-    else:
         # 2) Fall back to L1C harmonized (what you just tested)
-        l1c = (ee.ImageCollection("COPERNICUS/S2_HARMONIZED")
-               .filterBounds(geom)
-               .filterDate(t0, t1))
-        if l1c.size().getInfo() == 0:
-            raise RuntimeError(f"No Sentinel‑2 images for AOI between {t0} and {t1}")
-        col = l1c
-        print(f"Using S2_HARMONIZED (L1C) for {t0}–{t1}")
+    l1c = (ee.ImageCollection("COPERNICUS/S2_HARMONIZED")
+            .filterBounds(geom)
+            .filterDate(t0, t1))
+    if l1c.size().getInfo() == 0:
+        raise RuntimeError(f"No Sentinel‑2 images for AOI between {t0} and {t1}")
+    col = l1c
+    print(f"Using S2_HARMONIZED (L1C) for {t0}–{t1}")
 
     img = col.median().clip(geom)
 
@@ -88,14 +84,17 @@ def rasterize_osm(osm_gdf, out_path, width=1024, height=1024):
     ) as dst:
         dst.write(out, 1)
 
-def export_gee_to_geotiff(image, out_path, width=1024, height=1024):
+def export_gee_to_geotiff(image, out_path, width=512, height=512, scale=20):
     min_lon, min_lat, max_lon, max_lat = AOI_BBOX
     region = ee.Geometry.Rectangle([min_lon, min_lat, max_lon, max_lat])
-    proj = image.projection().atScale(10)
+
+    proj = image.projection().atScale(scale)  # 20 m instead of 10
+
     url = image.reproject(proj).getDownloadURL({
-        "scale": 10,
+        "scale": scale,
         "crs": "EPSG:4326",
         "region": region.toGeoJSONString(),
         "fileFormat": "GeoTIFF"
     })
     geemap.download_ee_image(url, out_path)
+
