@@ -61,7 +61,7 @@ tools = [
     Tool(
         name="get_osm_data",
         func=get_osm_data,
-        description="Retrieve OpenStreetMap data for a given area",
+        description="""Retrieve OpenStreetMap data for a given area""",
     ),
     Tool(
         name="create_damage_assessment",
@@ -115,18 +115,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# AUTH_MODE = os.getenv("AUTH_MODE", "basic")
-# MVP_USER = os.getenv("MVP_USER", "admin")
-# MVP_PASS = os.getenv("MVP_PASS", "password")
-# security = HTTPBasic()
-
-
-# def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-#     if credentials.username != MVP_USER or credentials.password != MVP_PASS:
-#         raise HTTPException(401, "Unauthorized")
-#     return credentials.username
-
-
 class ChatRequest(BaseModel):
     question: str
 
@@ -163,7 +151,7 @@ MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 if not MISTRAL_API_KEY:
     raise RuntimeError("Missing MISTRAL_API_KEY")
 mistral_llm = ChatMistralAI(
-    model="mistral-medium-latest", api_key=os.getenv("MISTRAL_API_KEY")
+    model="mistral-medium-latest", api_key=MISTRAL_API_KEY
 )
 
 # Claude Synthesis Model Explicit Agent Setup
@@ -171,9 +159,12 @@ CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 if not CLAUDE_API_KEY:
     raise RuntimeError("Missing CLAUDE_API_KEY")
 claude_llm = ChatAnthropic(
-    model="claude-sonnet-4-5-20250929", api_key=os.getenv("CLAUDE_API_KEY")
+    model="claude-sonnet-4-5-20250929", api_key=CLAUDE_API_KEY
 )
 
+# TODO: readd the credentials (Depend ?) for call to API
+
+# TODO: check if this class is useful
 
 class State(TypedDict):
     user_msg: Optional[str]
@@ -183,6 +174,7 @@ class State(TypedDict):
 
 
 #  Initialize LangChain agent with Claude and tools
+# TODO: refine prompt
 REASONING_PROMPT = """
 You are a reasoning model for a crisis-resilience assistant. 
 Your responsibilities:
@@ -284,7 +276,6 @@ class ToolDebugCallback(BaseCallbackHandler):
 def clean_llm_json(ai_message):
     """Extract text from AIMessage and clean."""
     text = ai_message.content if hasattr(ai_message, "content") else str(ai_message)
-    import re
 
     json_str = re.sub(
         r"^```json\s*|```$", "", text, flags=re.IGNORECASE | re.MULTILINE
@@ -293,6 +284,7 @@ def clean_llm_json(ai_message):
 
 
 # --- Reasoning LLM Node ---
+# TODO: Change tool result (it should not be about vulnerable zones, it should be just None maybe and add damage assessment later)
 def reasoning_fn(state):
     user_msg = state["user_msg"]
     tool_result = {"answer": "all zones are vulnerable"}
@@ -441,6 +433,7 @@ Now answer the CURRENT USER MESSAGE accordingly.
 graph.add_node("synthesis", synthesis_fn)
 
 # --- Build the graph ---
+# TODO: see the two graphs
 graph.add_edge(START, "reasoning")
 graph.add_edge("reasoning", "tool")
 graph.add_edge("tool", "synthesis")
@@ -486,6 +479,7 @@ async def run_test(user_msg: str):
     return outputs
 
 
+# TODO: check et revoir les endpoints
 # ---------- Graph: Mistral -> Tools -> Claude ----------
 @app.post("/agent/mistral")
 async def use_agent_mistral(
@@ -495,8 +489,7 @@ async def use_agent_mistral(
     outputs = await run_test(prompt)
     return outputs
 
-
-# TODO: changer pour une réponse intermédiaire du graph
+# TODO: changer pour une réponse intermédiaire du graph: de quoi on a besoin ave le modèle de reasoning (pour l'instant, le Claude devrait suffire)
 
 
 @app.post("/mistral_node")
