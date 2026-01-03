@@ -38,3 +38,9 @@ asyncio
 
 cdsapi
 xarray
+
+google-cloud-bigquery
+confluent-kafka
+python-dotenv
+atproto
+

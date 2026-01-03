@@ -314,11 +314,12 @@ async def tool_earth_engine_fn(state):
     user_msg = state["user_msg"]
     # If parameters complete, call the real tool
     # TODO MODIFY WHEN CV TOOL
+    tool_result = get_osm_data(location='Paris', features=['amenities']) # default values, but we have to change the LLM or the function for input of lat and lon possible
 
     return {
         "user_msg": user_msg,
         "reasoning": reasoning,
-        "tool_result": {"answer": "all zones are vulnerable"},
+        "tool_result": tool_result,
     }
 
 
