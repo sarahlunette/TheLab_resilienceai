@@ -2,22 +2,24 @@
 import os
 from datetime import datetime
 
-# Earth Engine project
 EE_PROJECT = os.environ.get("EE_PROJECT", "abstract-frame-366612")
 
-# Event configuration (Irma near Saint-Martin)
-EVENT_DATE = datetime(2017, 9, 7)
-D_BEFORE = 10   # 10 jours avant
-D_AFTER = 1     # 1 jour après
+# Event configuration
+EVENT_DATE = datetime(2017, 9, 7)  # Irma near Saint-Martin example
+D_BEFORE = 10
+D_AFTER = 1
 
-# AOI pour Sentinel : bbox raisonnable autour de Saint-Martin
-# [min_lon, min_lat, max_lon, max_lat]
+# AOI: [min_lon, min_lat, max_lon, max_lat]
 AOI_BBOX = (-63.15, 18.00, -63.05, 18.10)
 
 # Sentinel collections
 S1_COLL = "COPERNICUS/S1_GRD"
 S2_COLL = "COPERNICUS/S2_HARMONIZED"
 
-# Output directory
+# Output dir
 OUT_DIR = "data"
 os.makedirs(OUT_DIR, exist_ok=True)
+
+# OSM PBF source (region that contains Saint-Martin)
+OSM_PBF_URL = "https://download.geofabrik.de/central-america-latest.osm.pbf"
+OSM_PBF_PATH = os.path.join(OUT_DIR, "central-america-latest.osm.pbf")

@@ -7,3 +7,5 @@ numpy
 torch
 torchvision
 geedim
+osmium
+pyrosm
