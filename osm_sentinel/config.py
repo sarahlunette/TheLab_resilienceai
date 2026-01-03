@@ -9,8 +9,11 @@ EVENT_DATE = datetime(2017, 9, 7)  # Irma near Saint-Martin example
 D_BEFORE = 10
 D_AFTER = 1
 
-# AOI: [min_lon, min_lat, max_lon, max_lat]
+# AOI Sentinel (tel quel)
 AOI_BBOX = (-63.15, 18.00, -63.05, 18.10)
+
+# AOI OSM très petite (exemple)
+OSM_BBOX = (-63.12, 18.02, -63.08, 18.08)
 
 # Sentinel collections
 S1_COLL = "COPERNICUS/S1_GRD"
@@ -21,5 +24,7 @@ OUT_DIR = "data"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # OSM PBF source (region that contains Saint-Martin)
-OSM_PBF_URL = "https://download.geofabrik.de/central-america-latest.osm.pbf"
-OSM_PBF_PATH = os.path.join(OUT_DIR, "central-america-latest.osm.pbf")
+# config.py
+OSM_PBF_PATH = os.path.join(OUT_DIR, "saint-martin.osm.pbf")
+OSM_BBOX = (-63.105, 18.045, -63.095, 18.055)  # ou un peu plus large
+OSM_PBF_URL = ""  # ignoré en mode test
