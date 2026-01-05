@@ -1,15 +1,16 @@
 # data_gee_osm.py
-from datetime import datetime, timedelta
+
+from datetime import timedelta
 import os
-import subprocess
 
 import ee
 import geemap
 import geopandas as gpd
 import numpy as np
 import rasterio
-
 from rasterio import features
+from pyrosm import OSM
+from shapely.geometry import box
 
 from config import (
     EE_PROJECT,
@@ -17,17 +18,19 @@ from config import (
     S2_COLL,
     EVENT_DATE,
     AOI_BBOX,
+    OSM_BBOX,
     OUT_DIR,
-    OSM_PBF_URL,
+    OSM_PBF_URL,   # gardé pour compat mais plus utilisé en test
     OSM_PBF_PATH,
 )
 
-# Initialise Earth Engine
+# ----------------- Earth Engine init -----------------
 ee.Initialize(project=EE_PROJECT)
 
 
 # ----------------- Helpers AOI & dates -----------------
 def full_aoi_geometry():
+    """Full AOI rectangle from config.AOI_BBOX."""
     min_lon, min_lat, max_lon, max_lat = AOI_BBOX
     return ee.Geometry.Rectangle([min_lon, min_lat, max_lon, max_lat])
 
@@ -46,6 +49,9 @@ def _date_range(days_offset, window_days=7):
 
 # ----------------- Sentinel-2 -----------------
 def get_s2_image(days_offset):
+    """
+    Return Sentinel-2 median composite (B2,B3,B4,B8 + NDVI) for before/after.
+    """
     t0, t1 = _date_range(days_offset, window_days=7)
     geom = full_aoi_geometry()
 
@@ -66,21 +72,26 @@ def get_s2_image(days_offset):
     if not band_names:
         raise RuntimeError(f"Median S2 image has no bands for {t0}–{t1}")
 
-    img = img.select(["B2", "B3", "B4", "B8"]) # Blue (water, shade, discriminant floor/vegetation), Green (vegetation and turbidity of water, true color), Red (chrorophyle index and NDVI), NIR (Infrared, biomass and vegetation health, detection of flooding, NDVI) NDVI: (B8-B4)/(B8 + B4)
+    # B2: Blue, B3: Green, B4: Red, B8: NIR (10 m)[web:218][web:322]
+    img = img.select(["B2", "B3", "B4", "B8"])
+    # NDVI = (B8-B4)/(B8+B4)[web:318][web:328]
     ndvi = img.normalizedDifference(["B8", "B4"]).rename("NDVI")
     return img.addBands(ndvi)
 
 
-def export_s2_before_to_tif(days_before=60, days_after=1, out_path=None): # TODO: Choose best days_before, days_after
+def export_s2_before_to_tif(days_before=60, out_path=None):
     """
-    Exporte un S2 "before" en GeoTIFF pour servir de référence d'extent
-    (utilisé par rasterize_osm).
+    Export a pre-event Sentinel-2 image (RGB) to GeoTIFF so OSM can
+    be rasterized on the same grid.
     """
     if out_path is None:
         out_path = os.path.join(OUT_DIR, "s2_before.tif")
 
+    if os.path.exists(out_path):
+        print(f"{out_path} already exists, skipping S2-before export.")
+        return out_path
+
     geom = full_aoi_geometry()
-    # fenêtre autour EVENT_DATE - days_before
     event_before = EVENT_DATE - timedelta(days=days_before)
     start = (event_before - timedelta(days=3)).strftime("%Y-%m-%d")
     end = (event_before + timedelta(days=3)).strftime("%Y-%m-%d")
@@ -94,6 +105,7 @@ def export_s2_before_to_tif(days_before=60, days_after=1, out_path=None): # TODO
     if col.size().getInfo() == 0:
         raise RuntimeError(f"No S2 for s2_before export between {start} and {end}")
 
+    # B4,B3,B2 = RGB à 10 m[web:218][web:320]
     img = col.median().clip(geom).select(["B4", "B3", "B2"])
 
     print(f"Exporting Sentinel-2 pre-event image to {out_path}")
@@ -109,6 +121,9 @@ def export_s2_before_to_tif(days_before=60, days_after=1, out_path=None): # TODO
 
 # ----------------- Sentinel-1 -----------------
 def get_s1_image(days_offset):
+    """
+    Return Sentinel-1 VV,VH median composite (optional).
+    """
     t0, t1 = _date_range(days_offset, window_days=7)
     geom = full_aoi_geometry()
 
@@ -138,7 +153,11 @@ def get_s1_image(days_offset):
 
 
 def export_gee_to_geotiff(image, out_path, scale=30):
-    """Export any ee.Image over full AOI at coarse scale."""
+    """Export any ee.Image over AOI at coarse scale (if not already exported)."""
+    if os.path.exists(out_path):
+        print(f"{out_path} already exists, skipping export.")
+        return
+
     geom = full_aoi_geometry()
     geemap.ee_export_image(
         image,
@@ -150,76 +169,71 @@ def export_gee_to_geotiff(image, out_path, scale=30):
     )
 
 
-# ----------------- OSM: PBF + osmium -----------------
-def _download_osm_pbf_if_needed():
-    import requests
-
+# ----------------- OSM via PBF + pyrosm -----------------
+def _ensure_osm_pbf():
+    """
+    En mode test : on suppose que le petit PBF local existe déjà
+    (par ex. OUT_DIR/saint-martin.osm.pbf) et on NE télécharge plus rien.
+    """
     if os.path.exists(OSM_PBF_PATH):
         print(f"Local OSM PBF already exists: {OSM_PBF_PATH}")
         return
 
-    print(f"Downloading OSM PBF from {OSM_PBF_URL} ...")
-    r = requests.get(OSM_PBF_URL, stream=True)
-    r.raise_for_status()
-    with open(OSM_PBF_PATH, "wb") as f:
-        for chunk in r.iter_content(chunk_size=1024 * 1024):
-            f.write(chunk)
-    print(f"Downloaded OSM PBF to {OSM_PBF_PATH}")
+    raise FileNotFoundError(
+        f"OSM_PBF_PATH not found: {OSM_PBF_PATH}. "
+        "Place your small extract (e.g. saint-martin.osm.pbf) there."
+    )
 
 
-def _extract_osm_geojson_from_pbf():
+def _extract_osm_with_pyrosm():
     """
-    Utilise osmium-tool pour extraire bâtiments et routes en GeoJSON
-    à partir du PBF téléchargé, recoupé sur AOI_BBOX.
+    Use pyrosm to extract buildings and roads as GeoJSON,
+    clipped to OSM_BBOX, from a small local PBF.
     """
     cache_b = os.path.join(OUT_DIR, "osm_buildings.geojson")
     cache_r = os.path.join(OUT_DIR, "osm_roads.geojson")
 
     if os.path.exists(cache_b) and os.path.exists(cache_r):
-        print("OSM GeoJSON already extracted, using cache.")
+        print("OSM GeoJSON already exist, using cache.")
         return
 
-    _download_osm_pbf_if_needed()
+    _ensure_osm_pbf()
 
-    min_lon, min_lat, max_lon, max_lat = AOI_BBOX
-    bbox_str = f"{min_lon},{min_lat},{max_lon},{max_lat}"
+    min_lon, min_lat, max_lon, max_lat = OSM_BBOX
+    bbox_geom = box(min_lon, min_lat, max_lon, max_lat)
 
-    # Bâtiments
-    print("Extracting buildings GeoJSON with osmium ...")
-    cmd_buildings = [
-        "osmium", "tags-filter",
-        "-o", cache_b,
-        "--overwrite",
-        "-O", OSM_PBF_PATH,
-        "w/building",
-        f"-b={bbox_str}",
-    ]
-    subprocess.run(cmd_buildings, check=True)
-    print("Buildings GeoJSON written to", cache_b)
+    print("Reading OSM PBF with pyrosm ...")
+    osm = OSM(OSM_PBF_PATH, bounding_box=bbox_geom)
 
-    # Routes
-    print("Extracting roads GeoJSON with osmium ...")
-    cmd_roads = [
-        "osmium", "tags-filter",
-        "-o", cache_r,
-        "--overwrite",
-        "-O", OSM_PBF_PATH,
-        "w/highway",
-        f"-b={bbox_str}",
-    ]
-    subprocess.run(cmd_roads, check=True)
-    print("Roads GeoJSON written to", cache_r)
+    print("Extracting buildings with pyrosm ...")
+    buildings = osm.get_buildings()
+    if buildings is None or buildings.empty:
+        print("No buildings found in OSM_BBOX.")
+        buildings = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+    else:
+        print(f"Buildings: {len(buildings)} features")
+
+    print("Extracting roads with pyrosm ...")
+    roads = osm.get_network(network_type="driving")
+    if roads is None or roads.empty:
+        print("No roads found in OSM_BBOX.")
+        roads = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+    else:
+        print(f"Roads: {len(roads)} features")
+
+    buildings.to_file(cache_b, driver="GeoJSON")
+    roads.to_file(cache_r, driver="GeoJSON")
+    print("Saved OSM layers to", cache_b, "and", cache_r)
 
 
 def get_osm_layers():
     """
-    Retourne (buildings, roads) en GeoDataFrame,
-    extraits automatiquement depuis un PBF OSM local (téléchargé si besoin).
+    Return (buildings, roads) as GeoDataFrames from cached GeoJSON,
+    automatically generated from small local PBF if needed.
     """
+    _extract_osm_with_pyrosm()
     cache_b = os.path.join(OUT_DIR, "osm_buildings.geojson")
     cache_r = os.path.join(OUT_DIR, "osm_roads.geojson")
-
-    _extract_osm_geojson_from_pbf()
 
     print("Loading OSM GeoJSON from cache")
     b = gpd.read_file(cache_b)
@@ -229,8 +243,7 @@ def get_osm_layers():
 
 def rasterize_osm(osm_gdf, out_path):
     """
-    Rasterise OSM (bâtiments ou routes) sur l’extent de s2_before.tif
-    pour aligner parfaitement les masques avec Sentinel.
+    Rasterize OSM (buildings or roads) on the exact grid of s2_before.tif.
     """
     s2b_path = os.path.join(OUT_DIR, "s2_before.tif")
     if not os.path.exists(s2b_path):
@@ -242,7 +255,11 @@ def rasterize_osm(osm_gdf, out_path):
         height = src.height
         crs = src.crs
 
-    shapes = ((geom, 1) for geom in osm_gdf.to_crs(crs).geometry if geom is not None)
+    shapes = (
+        (geom, 1)
+        for geom in osm_gdf.to_crs(crs).geometry
+        if geom is not None
+    )
 
     out = np.zeros((height, width), dtype=np.uint8)
     out = features.rasterize(
